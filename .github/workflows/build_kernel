@@ -1,0 +1,128 @@
+# This is the merged workflow file
+
+name: Build - Kernel
+
+on:
+  # Triggers from your GKI build file
+  workflow_dispatch:
+    inputs:
+      KERNEL_BRANCH:
+        description: 'Kernel Manifest Branch'
+        required: true
+        default: 'common-android13-5.15'
+        type: string
+      CUSTOM_TAG:
+        description: 'Custom Version String (e.g., -DevAyu)'
+        required: true
+        default: '-DevAyu'
+  
+  # Trigger from your release file
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build GKI by ${{ github.actor }}
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+    permissions:
+      contents: write # Needed for the GitHub Release
+      
+    steps:
+    # --- Steps from your GKI Build File ---
+    - name: Checkout
+      uses: actions/checkout@v4 # Updated to v4
+      
+    - name: Clean-up Runner
+      uses: rokibhasansagar/slimhub_actions@main
+
+    - name: Add Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 20
+      
+    - name: Install Dependencies & Repo Tool
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git git-lfs micro repo build-essential bc \
+          libssl-dev libncurses5-dev cpio bison flex \
+          libelf-dev dwarves lz4 zstd rsync curl gcc g++
+        
+    - name: Configure Git
+      run: |
+        git config --global user.email "ayushkumar274549@gmail.com"
+        git config --global user.name "DevAyu-Codes"
+      
+    - name: Checkout Kernel Sources
+      run: |
+        mkdir android-kernel && cd android-kernel
+        repo init -u https://android.googlesource.com/kernel/manifest -b ${{ github.event.inputs.KERNEL_BRANCH }}
+        repo sync -c -j"$(nproc)"
+        
+    - name: Apply Customizations
+      run: |
+        cd android-kernel
+        
+        # 1. Set custom version string
+        echo "Setting EXTRAVERSION to: ${{ github.event.inputs.CUSTOM_TAG }}"
+        sed -i 's/^EXTRAVERSION.*/EXTRAVERSION = ${{ github.event.inputs.CUSTOM_TAG }}/' common/Makefile
+        cd common
+        git add Makefile
+        git commit -m "build: Set custom version string (${{ github.event.inputs.CUSTOM_TAG }})"
+        cd ../
+        
+        # 2. Disable local version hash
+        echo "Disabling local version hash script..."
+        echo '#!/bin/bash' > scripts/setlocalversion
+        echo 'exit 0' >> scripts/setlocalversion
+        chmod +x scripts/setlocalversion
+
+    # --- This is the main build step, now with an ID ---
+    - name: Build GKI Kernel
+      id: build # Added an ID to check its outcome
+      run: |
+        cd android-kernel
+        echo "Starting GKI build..."
+        rm -rf out/
+        BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
+        
+    # --- Steps from your Notify & Release File ---
+    
+    # 1. Send Telegram Message (if build succeeds)
+    - name: Send Telegram Notification
+      if: steps.build.outcome == 'success'
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        format: markdown
+        message: |
+          ✅ *GKI Build Complete!*
+          
+          *Repository:* `${{ github.repository }}`
+          *Branch:* `${{ github.event.inputs.KERNEL_BRANCH }}`
+          *Tag:* `${{ github.event.inputs.CUSTOM_TAG }}`
+          *Commit:* `${{ github.sha }}`
+          
+          Build finished successfully. Uploading release assets...
+
+    # 2. Create GitHub Release (if build succeeds)
+    - name: Create GitHub Release
+      if: steps.build.outcome == 'success'
+      uses: softprops/action-gh-release@v1
+      with:
+        # Creates a more descriptive tag
+        tag_name: ${{ github.event.inputs.KERNEL_BRANCH }}-${{ github.event.inputs.CUSTOM_TAG }}-${{ github.run_id }}
+        name: "GKI Build | ${{ github.event.inputs.KERNEL_BRANCH }} | ${{ github.event.inputs.CUSTOM_TAG }}"
+        body: |
+          Automated GKI build.
+          - **Branch:** ${{ github.event.inputs.KERNEL_BRANCH }}
+          - **Custom Tag:** ${{ github.event.inputs.CUSTOM_TAG }}
+          - **Commit:** ${{ github.sha }}
+        draft: false
+        prerelease: false
+        
+        # --- This is the UPDATED path ---
+        # It takes all files from your GKI build's 'dist' folder
+        files: android-kernel/out/android13-5.15/dist/*
