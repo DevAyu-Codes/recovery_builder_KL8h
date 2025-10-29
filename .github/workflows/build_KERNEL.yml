@@ -15,14 +15,9 @@ on:
         description: 'Custom Version String (e.g., -DevAyu)'
         required: true
         default: '-DevAyu'
-  
-  # Trigger from your release file
-  push:
-    branches: [ main ]
-
 jobs:
   build:
-    name: Build GKI by ${{ github.actor }}
+    name: Build Kernel by ${{ github.actor }}
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id
     permissions:
@@ -79,11 +74,11 @@ jobs:
         chmod +x scripts/setlocalversion
 
     # --- This is the main build step, now with an ID ---
-    - name: Build GKI Kernel
+    - name: Build Kernel
       id: build # Added an ID to check its outcome
       run: |
         cd android-kernel
-        echo "Starting GKI build..."
+        echo "Starting build..."
         rm -rf out/
         BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
         
