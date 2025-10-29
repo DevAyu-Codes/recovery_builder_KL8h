@@ -31,7 +31,7 @@ jobs:
     - name: Add Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 25
+        swap-size-gb: 50
       
     - name: Install Dependencies & Repo Tool
       run: |
