@@ -69,9 +69,9 @@ jobs:
         
         # 2. Disable local version hash
         echo "Disabling local version hash script..."
-        echo '#!/bin/bash' > scripts/setlocalversion
-        echo 'exit 0' >> scripts/setlocalversion
-        chmod +x scripts/setlocalversion
+        echo '#!/bin/bash' > common/scripts/setlocalversion
+        echo 'exit 0' >> common/scripts/setlocalversion
+        chmod +x common/scripts/setlocalversion
 
     # --- This is the main build step, now with an ID ---
     - name: Build Kernel
