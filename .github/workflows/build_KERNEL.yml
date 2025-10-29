@@ -77,6 +77,9 @@ jobs:
         cd android-kernel
         echo "Starting build..."
         rm -rf out/
+        # --- ADD THIS LINE ---
+        # Force the build to use only 2 parallel jobs to save RAM
+        export NPROC=2
         BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
         
     # --- Steps from your Notify & Release File ---
