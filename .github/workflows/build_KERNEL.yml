@@ -74,18 +74,14 @@ jobs:
     - name: Build Kernel (Single-Threaded Safe Mode)
       id: build # Added an ID to check its outcome
       run: |
-        # Change directory to the root of the kernel source tree
         cd android-kernel
-        
         echo "Starting single-core build. This will be slow but should avoid OOM..."
         rm -rf out/
-        
         # Disable LTO (Critical for memory)
         export CLANG_LTO=0
-        
-        # Execute the entire GKI build using the make -j1 wrapper.
-        # This explicitly calls the script using its absolute path with SHELL="bash -c".
-        make -j1 BUILD_CONFIG=common/build.config.gki.aarch64 V=1 SHELL="bash -c" $(pwd)/build/build.sh
+        # Executes the GKI build script using make -j1, which forces the entire process 
+        # (including vmlinux linking) to run with a single thread.
+        env -u MAKEFLAGS make -j1 BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
         
     # --- Steps from your Notify & Release File ---
     
